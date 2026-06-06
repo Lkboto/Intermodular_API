@@ -1,0 +1,26 @@
+[
+  {
+    "id_reserva": 47,
+    "id_recurso": 3,
+    "recurso_nombre": "Sala de Reuniones A",
+    "fecha": "2026-06-20",
+    "hora_inicio": "09:00:00",
+    "hora_fin": "11:00:00",
+    "coste": 40.00,
+    "numero_plazas": 8,
+    "motivo": "Reunión de planificación trimestral",
+    "observaciones": "Necesitamos proyector y pizarra"
+  },
+  {
+    "id_reserva": 51,
+    "id_recurso": 7,
+    "recurso_nombre": "Sala de Formación B",
+    "fecha": "2026-06-25",
+    "hora_inicio": "10:00:00",
+    "hora_fin": "13:00:00",
+    "coste": 60.00,
+    "numero_plazas": 15,
+    "motivo": "Taller de onboarding",
+    "observaciones": null
+  }
+]

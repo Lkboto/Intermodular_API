@@ -1,0 +1,402 @@
+openapi: 3.0.3
+
+info:
+  title: API REST — Sistema de Reservas
+  description: >
+    API para gestionar reservas de recursos (salas, instalaciones, equipos).
+    Permite crear, consultar, modificar y eliminar reservas del usuario autenticado.
+    El coste, el usuario y el identificador de reserva los asigna el backend automáticamente.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost/api
+    description: Entorno de desarrollo local
+
+tags:
+  - name: Reservas
+    description: Operaciones CRUD sobre la entidad Reserva
+
+paths:
+
+  /reservas:
+
+    get:
+      tags: [Reservas]
+      summary: Listar reservas del usuario autenticado
+      description: >
+        Devuelve todas las reservas asociadas al usuario que realiza la petición.
+        Incluye el nombre del recurso para facilitar la lectura en el frontend.
+      responses:
+        "200":
+          description: Lista de reservas obtenida correctamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reserva"
+              example:
+                - id_reserva: 47
+                  id_recurso: 3
+                  recurso_nombre: "Sala de Reuniones A"
+                  fecha: "2026-06-20"
+                  hora_inicio: "09:00:00"
+                  hora_fin: "11:00:00"
+                  coste: 40.00
+                  numero_plazas: 8
+                  motivo: "Reunión de planificación trimestral"
+                  observaciones: "Necesitamos proyector y pizarra"
+                - id_reserva: 51
+                  id_recurso: 7
+                  recurso_nombre: "Sala de Formación B"
+                  fecha: "2026-06-25"
+                  hora_inicio: "10:00:00"
+                  hora_fin: "13:00:00"
+                  coste: 60.00
+                  numero_plazas: 15
+                  motivo: "Taller de onboarding"
+                  observaciones: null
+        "401":
+          $ref: "#/components/responses/NoAutorizado"
+
+    post:
+      tags: [Reservas]
+      summary: Crear una nueva reserva
+      description: >
+        Crea una reserva para el usuario autenticado sobre el recurso indicado.
+        El backend valida disponibilidad horaria, capacidad del recurso y fechas.
+        Los campos `id_reserva`, `id_usuario` y `coste` los genera el servidor.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservaInput"
+            example:
+              id_recurso: 3
+              fecha: "2026-06-20"
+              hora_inicio: "09:00:00"
+              hora_fin: "11:00:00"
+              numero_plazas: 8
+              motivo: "Reunión de planificación trimestral"
+              observaciones: "Necesitamos proyector y pizarra"
+      responses:
+        "201":
+          description: Reserva creada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reserva"
+              example:
+                id_reserva: 47
+                id_recurso: 3
+                recurso_nombre: "Sala de Reuniones A"
+                fecha: "2026-06-20"
+                hora_inicio: "09:00:00"
+                hora_fin: "11:00:00"
+                coste: 40.00
+                numero_plazas: 8
+                motivo: "Reunión de planificación trimestral"
+                observaciones: "Necesitamos proyector y pizarra"
+        "400":
+          $ref: "#/components/responses/ErrorValidacion"
+        "401":
+          $ref: "#/components/responses/NoAutorizado"
+        "409":
+          description: Conflicto — el recurso ya está reservado en ese tramo horario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Conflicto de disponibilidad"
+                detalles:
+                  - campo: "hora_inicio"
+                    mensaje: "El recurso ya tiene una reserva que se solapa con el tramo indicado"
+
+  /reservas/{id_reserva}:
+
+    get:
+      tags: [Reservas]
+      summary: Obtener una reserva por ID
+      description: Devuelve los detalles de una reserva concreta del usuario autenticado.
+      parameters:
+        - $ref: "#/components/parameters/IdReserva"
+      responses:
+        "200":
+          description: Reserva encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reserva"
+        "401":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+    patch:
+      tags: [Reservas]
+      summary: Modificar una reserva existente
+      description: >
+        Actualiza uno o más campos modificables de una reserva.
+        Solo se envían los campos que cambian. El campo `id_recurso` no puede
+        modificarse tras la creación. El `coste` lo recalcula el backend si
+        cambian las horas.
+      parameters:
+        - $ref: "#/components/parameters/IdReserva"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservaUpdate"
+            example:
+              hora_fin: "12:00:00"
+              observaciones: "Añadimos también videoconferencia"
+      responses:
+        "200":
+          description: Reserva actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reserva"
+        "400":
+          $ref: "#/components/responses/ErrorValidacion"
+        "401":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+        "409":
+          description: Conflicto — el nuevo tramo horario solapa con otra reserva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags: [Reservas]
+      summary: Eliminar una reserva
+      description: Elimina permanentemente la reserva indicada del usuario autenticado.
+      parameters:
+        - $ref: "#/components/parameters/IdReserva"
+      responses:
+        "204":
+          description: Reserva eliminada correctamente (sin cuerpo de respuesta)
+        "401":
+          $ref: "#/components/responses/NoAutorizado"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
+components:
+
+  parameters:
+    IdReserva:
+      name: id_reserva
+      in: path
+      required: true
+      description: Identificador único de la reserva
+      schema:
+        type: integer
+        example: 47
+
+  schemas:
+
+    Reserva:
+      type: object
+      description: Reserva completa tal como la devuelve el servidor
+      properties:
+        id_reserva:
+          type: integer
+          readOnly: true
+          description: Identificador único generado por la base de datos
+          example: 47
+        id_recurso:
+          type: integer
+          readOnly: true
+          description: Identificador del recurso reservado
+          example: 3
+        recurso_nombre:
+          type: string
+          readOnly: true
+          description: Nombre del recurso (incluido para facilitar la presentación)
+          example: "Sala de Reuniones A"
+        id_usuario:
+          type: integer
+          readOnly: true
+          description: Identificador del usuario propietario de la reserva
+          example: 12
+        fecha:
+          type: string
+          format: date
+          description: Fecha de la reserva (YYYY-MM-DD)
+          example: "2026-06-20"
+        hora_inicio:
+          type: string
+          format: time
+          description: Hora de inicio del tramo reservado (HH:MM:SS)
+          example: "09:00:00"
+        hora_fin:
+          type: string
+          format: time
+          description: Hora de fin del tramo reservado (HH:MM:SS). Debe ser posterior a hora_inicio.
+          example: "11:00:00"
+        coste:
+          type: number
+          format: decimal
+          readOnly: true
+          description: Coste calculado automáticamente por el backend
+          example: 40.00
+        numero_plazas:
+          type: integer
+          minimum: 1
+          description: Número de plazas requeridas. No puede superar la capacidad del recurso.
+          example: 8
+        motivo:
+          type: string
+          nullable: true
+          description: Descripción del propósito de la reserva
+          example: "Reunión de planificación trimestral"
+        observaciones:
+          type: string
+          nullable: true
+          description: Notas adicionales del usuario
+          example: "Necesitamos proyector y pizarra"
+
+    ReservaInput:
+      type: object
+      description: Datos que envía el cliente para crear una reserva
+      required:
+        - id_recurso
+        - fecha
+        - hora_inicio
+        - hora_fin
+      properties:
+        id_recurso:
+          type: integer
+          description: Identificador del recurso que se desea reservar
+          example: 3
+        fecha:
+          type: string
+          format: date
+          description: Fecha de la reserva. Debe ser igual o posterior a hoy.
+          example: "2026-06-20"
+        hora_inicio:
+          type: string
+          format: time
+          description: Hora de inicio del tramo (HH:MM:SS)
+          example: "09:00:00"
+        hora_fin:
+          type: string
+          format: time
+          description: Hora de fin del tramo (HH:MM:SS). Debe ser posterior a hora_inicio.
+          example: "11:00:00"
+        numero_plazas:
+          type: integer
+          minimum: 1
+          description: Número de plazas necesarias. No puede superar la capacidad del recurso.
+          example: 8
+        motivo:
+          type: string
+          nullable: true
+          description: Propósito de la reserva
+          example: "Reunión de planificación trimestral"
+        observaciones:
+          type: string
+          nullable: true
+          description: Observaciones adicionales
+          example: "Necesitamos proyector y pizarra"
+
+    ReservaUpdate:
+      type: object
+      description: >
+        Campos modificables de una reserva. Se envían solo los que cambian (PATCH parcial).
+        No se puede cambiar id_recurso ni los campos de solo lectura.
+      properties:
+        fecha:
+          type: string
+          format: date
+          description: Nueva fecha de la reserva. Debe ser igual o posterior a hoy.
+          example: "2026-06-22"
+        hora_inicio:
+          type: string
+          format: time
+          description: Nueva hora de inicio (HH:MM:SS)
+          example: "10:00:00"
+        hora_fin:
+          type: string
+          format: time
+          description: Nueva hora de fin (HH:MM:SS). Debe ser posterior a hora_inicio.
+          example: "12:00:00"
+        numero_plazas:
+          type: integer
+          minimum: 1
+          description: Número de plazas actualizado
+          example: 10
+        motivo:
+          type: string
+          nullable: true
+          description: Motivo actualizado
+          example: "Reunión de seguimiento de sprint"
+        observaciones:
+          type: string
+          nullable: true
+          description: Observaciones actualizadas
+          example: "Añadimos también videoconferencia"
+
+    Error:
+      type: object
+      description: Respuesta de error estándar de la API
+      properties:
+        error:
+          type: string
+          description: Descripción general del error
+          example: "Datos de entrada inválidos"
+        detalles:
+          type: array
+          description: Lista de errores por campo (presente en errores 400)
+          items:
+            type: object
+            properties:
+              campo:
+                type: string
+                description: Nombre del campo que produjo el error
+                example: "hora_fin"
+              mensaje:
+                type: string
+                description: Explicación del problema
+                example: "La hora de fin debe ser posterior a la hora de inicio"
+
+  responses:
+    ErrorValidacion:
+      description: Error de validación — algún campo no cumple las reglas de negocio
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Datos de entrada inválidos"
+            detalles:
+              - campo: "hora_fin"
+                mensaje: "La hora de fin debe ser posterior a la hora de inicio"
+              - campo: "fecha"
+                mensaje: "La fecha debe ser igual o posterior a la fecha de hoy"
+
+    NoAutorizado:
+      description: No autenticado — se requiere sesión válida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "No autorizado"
+            detalles: []
+
+    NoEncontrado:
+      description: Reserva no encontrada o no pertenece al usuario autenticado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Reserva no encontrada"
+            detalles: []
